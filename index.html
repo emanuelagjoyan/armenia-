@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ինտերակտիվ Քարտեզների Ներկման Գործիք</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+            color: #0f172a;
+        }
+
+        .toolbar {
+            max-width: 1250px;
+            margin: 0 auto 15px auto;
+            background: #ffffff;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-group label { font-weight: bold; font-size: 13px; }
+
+        input[type="text"] {
+            padding: 8px 10px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            background-color: white;
+        }
+
+        .title-input { width: 220px; font-weight: bold; }
+
+        input[type="color"] {
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .btn-upload { background-color: #8b5cf6; color: white; }
+        .btn-upload:hover { background-color: #7c3aed; }
+        .btn-add { background-color: #2563eb; color: white; }
+        .btn-add:hover { background-color: #1d4ed8; }
+        .btn-eraser { background-color: #f59e0b; color: white; }
+        .btn-eraser:hover { background-color: #d97706; }
+        .btn-eraser.active { outline: 3px solid #b45309; background-color: #b45309; }
+        .btn-download { background-color: #10b981; color: white; }
+        .btn-download:hover { background-color: #059669; }
+        .btn-reset { background-color: #ef4444; color: white; }
+        .btn-reset:hover { background-color: #dc2626; }
+
+        #map-wrapper {
+            position: relative;
+            max-width: 1100px;
+            min-height: 550px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #map-canvas {
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+            border: 1px dashed #cbd5e1;
+        }
+
+        #map-title {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .custom-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            z-index: 20;
+            min-width: 200px;
+        }
+        .custom-legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+        }
+        .legend-item.active { border-color: #2563eb; background: #eff6ff; }
+        .legend-color-box { width: 18px; height: 18px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); }
+        .btn-remove-item { background: none; border: none; color: #ef4444; font-weight: bold; cursor: pointer; margin-left: auto; }
+        
+        #upload-placeholder {
+            text-align: center;
+            color: #64748b;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="tool-group">
+            <input type="file" id="imageLoader" accept="image/*" style="display: none;">
+            <button class="btn btn-upload" onclick="document.getElementById('imageLoader').click();">📁 Բեռնել Քարտեզ</button>
+        </div>
+
+        <div class="tool-group">
+            <label for="titleInput">Վերնագիր՝</label>
+            <input type="text" id="titleInput" class="title-input" value="ԻՄ ԹԵՄԱՏԻԿ ՔԱՐՏԵԶԸ" oninput="updateTitle(this.value)">
+        </div>
+
+        <div class="tool-group">
+            <label for="categoryColor">Գույն՝</label>
+            <input type="color" id="categoryColor" value="#ef4444">
+            <input type="text" id="categoryLabelInput" placeholder="օր.՝ Կատեգորիա 1">
+            <button class="btn btn-add" onclick="createCategory()">+ Կատեգորիա</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="btn btn-eraser" id="eraserBtn" onclick="toggleEraser()">🧹 Ռետին</button>
+            <button class="btn btn-download" onclick="downloadPNG()">📥 PNG Ներբեռնել</button>
+            <button class="btn btn-reset" onclick="resetMap()">Մաքրել</button>
+        </div>
+    </div>
+
+    <div id="map-wrapper">
+        <h2 id="map-title">ԻՄ ԹԵՄԱՏԻԿ ՔԱՐՏԵԶԸ</h2>
+        
+        <div class="custom-legend">
+            <h4>Պայմանական Նշաններ</h4>
+            <div id="legendItemsContainer"></div>
+        </div>
+
+        <div id="upload-placeholder">
+            <p>Խնդրում ենք սեղմել <strong>«📁 Բեռնել Քարտեզ»</strong> կոճակը<br>և ընտրել քարտեզի ուրվագծային նկարը:</p>
+        </div>
+        <canvas id="map-canvas" style="display: none;"></canvas>
+    </div>
+
+    <script>
+        var categories = [];
+        var activeCategoryId = null;
+        var isEraserActive = false;
+        var canvas = document.getElementById('map-canvas');
+        var ctx = canvas.getContext('2d');
+        var currentImg = null;
+
+        document.getElementById('imageLoader').addEventListener('change', function(e) {
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                currentImg = new Image();
+                currentImg.onload = function() {
+                    document.getElementById('upload-placeholder').style.display = 'none';
+                    canvas.style.display = 'block';
+                    canvas.width = currentImg.width;
+                    canvas.height = currentImg.height;
+                    ctx.drawImage(currentImg, 0, 0);
+                }
+                currentImg.src = event.target.result;
+            }
+            if (e.target.files[0]) {
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        function updateTitle(val) {
+            document.getElementById('map-title').innerText = val || "ԻՄ ԹԵՄԱՏԻԿ ՔԱՐՏԵԶԸ";
+        }
+
+        function toggleEraser() {
+            isEraserActive = !isEraserActive;
+            var btn = document.getElementById('eraserBtn');
+            if (isEraserActive) {
+                btn.classList.add('active');
+                activeCategoryId = null;
+                renderLegend();
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+
+        function createCategory() {
+            var labelInput = document.getElementById('categoryLabelInput');
+            var labelText = labelInput.value.trim();
+            var color = document.getElementById('categoryColor').value;
+
+            if (!labelText) {
+                alert("Խնդրում ենք գրել կատեգորիայի անվանումը:");
+                return;
+            }
+
+            var newCategory = { id: Date.now(), color: color, label: labelText };
+            categories.push(newCategory);
+            activeCategoryId = newCategory.id;
+            isEraserActive = false;
+            document.getElementById('eraserBtn').classList.remove('active');
+            labelInput.value = '';
+            renderLegend();
+        }
+
+        function renderLegend() {
+            var container = document.getElementById('legendItemsContainer');
+            container.innerHTML = '';
+
+            if (categories.length === 0) {
+                container.innerHTML = '<span style="font-size:12px; color:#94a3b8;">Կատեգորիաներ չկան</span>';
+                return;
+            }
+
+            categories.forEach(function(cat) {
+                var itemDiv = document.createElement('div');
+                itemDiv.className = 'legend-item' + (cat.id === activeCategoryId ? ' active' : '');
+                itemDiv.onclick = function() { 
+                    activeCategoryId = cat.id; 
+                    isEraserActive = false;
+                    document.getElementById('eraserBtn').classList.remove('active');
+                    renderLegend(); 
+                };
+
+                itemDiv.innerHTML = `
+                    <div class="legend-color-box" style="background-color: ${cat.color};"></div>
+                    <span>${cat.label}</span>
+                    <button class="btn-remove-item" onclick="deleteCategory(${cat.id}, event)">✕</button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function deleteCategory(id, event) {
+            event.stopPropagation();
+            categories = categories.filter(c => c.id !== id);
+            if (activeCategoryId === id) activeCategoryId = categories.length > 0 ? categories[0].id : null;
+            renderLegend();
+        }
+
+        canvas.addEventListener('click', function(e) {
+            if (!isEraserActive && !activeCategoryId) {
+                alert("Խնդրում ենք ընտրել կատեգորիա կամ միացնել «🧹 Ռետին» գործիքը:");
+                return;
+            }
+
+            var rect = canvas.getBoundingClientRect();
+            var scaleX = canvas.width / rect.width;
+            var scaleY = canvas.height / rect.height;
+
+            var startX = Math.floor((e.clientX - rect.left) * scaleX);
+            var startY = Math.floor((e.clientY - rect.top) * scaleY);
+
+            var fillColor = { r: 255, g: 255, b: 255 };
+
+            if (!isEraserActive) {
+                var activeCat = categories.find(c => c.id === activeCategoryId);
+                if (activeCat) {
+                    fillColor = hexToRgb(activeCat.color);
+                }
+            }
+
+            floodFill(startX, startY, fillColor);
+        });
+
+        function floodFill(startX, startY, fillColor) {
+            var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var data = imgData.data;
+
+            var startPos = (startY * canvas.width + startX) * 4;
+            var startR = data[startPos];
+            var startG = data[startPos + 1];
+            var startB = data[startPos + 2];
+
+            if (startR < 100 && startG < 100 && startB < 100) return;
+
+            if (Math.abs(startR - fillColor.r) < 10 && 
+                Math.abs(startG - fillColor.g) < 10 && 
+                Math.abs(startB - fillColor.b) < 10) {
+                fillColor = { r: 255, g: 255, b: 255 };
+            }
+
+            var pixelStack = [[startX, startY]];
+
+            while (pixelStack.length) {
+                var newPos = pixelStack.pop();
+                var x = newPos[0];
+                var y = newPos[1];
+
+                var pixelPos = (y * canvas.width + x) * 4;
+
+                while (y >= 0 && matchStartColor(data, pixelPos, startR, startG, startB)) {
+                    y--;
+                    pixelPos -= canvas.width * 4;
+                }
+                pixelPos += canvas.width * 4;
+                y++;
+
+                var reachLeft = false;
+                var reachRight = false;
+
+                while (y < canvas.height && matchStartColor(data, pixelPos, startR, startG, startB)) {
+                    colorPixel(data, pixelPos, fillColor);
+
+                    if (x > 0) {
+                        if (matchStartColor(data, pixelPos - 4, startR, startG, startB)) {
+                            if (!reachLeft) {
+                                pixelStack.push([x - 1, y]);
+                                reachLeft = true;
+                            }
+                        } else if (reachLeft) {
+                            reachLeft = false;
+                        }
+                    }
+
+                    if (x < canvas.width - 1) {
+                        if (matchStartColor(data, pixelPos + 4, startR, startG, startB)) {
+                            if (!reachRight) {
+                                pixelStack.push([x + 1, y]);
+                                reachRight = true;
+                            }
+                        } else if (reachRight) {
+                            reachRight = false;
+                        }
+                    }
+
+                    y++;
+                    pixelPos += canvas.width * 4;
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function matchStartColor(data, pixelPos, startR, startG, startB) {
+            var r = data[pixelPos];
+            var g = data[pixelPos + 1];
+            var b = data[pixelPos + 2];
+
+            return Math.abs(r - startR) < 30 &&
+                   Math.abs(g - startG) < 30 &&
+                   Math.abs(b - startB) < 30;
+        }
+
+        function colorPixel(data, pixelPos, fillColor) {
+            data[pixelPos] = fillColor.r;
+            data[pixelPos + 1] = fillColor.g;
+            data[pixelPos + 2] = fillColor.b;
+            data[pixelPos + 3] = 255;
+        }
+
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 0, b: 0 };
+        }
+
+        function resetMap() {
+            if (currentImg) {
+                ctx.drawImage(currentImg, 0, 0);
+            }
+            categories = [];
+            activeCategoryId = null;
+            isEraserActive = false;
+            document.getElementById('eraserBtn').classList.remove('active');
+            renderLegend();
+        }
+
+        function downloadPNG() {
+            if (!currentImg) {
+                alert("Խնդրում ենք նախ բեռնել քարտեզի նկարը:");
+                return;
+            }
+
+            // Պահպանում ենք ընթացիկ canvas-ի վիճակը
+            var tempImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            // 1. Նկարում ենք Վերնագիրը (Title) — ԷԼ ԱՎԵԼԻ ՄԵԾ (40px)
+            var rawTitle = document.getElementById('titleInput').value.trim() || 'ԻՄ ԹԵՄԱՏԻԿ ՔԱՐՏԵԶԸ';
+            
+            ctx.font = 'bold 40px "Segoe UI", Arial, sans-serif';
+            var titleWidth = ctx.measureText(rawTitle).width;
+            
+            var titleBoxPaddingX = 30;
+            var titleBoxPaddingY = 18;
+            var titleBoxWidth = titleWidth + (titleBoxPaddingX * 2);
+            var titleBoxHeight = 40 + (titleBoxPaddingY * 2);
+            var titleX = (canvas.width - titleBoxWidth) / 2;
+            var titleY = 35;
+
+            // Վերնագրի ֆոնը
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(titleX, titleY, titleBoxWidth, titleBoxHeight, 14);
+            ctx.fill();
+            ctx.stroke();
+
+            // Վերնագրի տեքստը
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(rawTitle, canvas.width / 2, titleY + (titleBoxHeight / 2));
+
+            // 2. Նկարում ենք Պայմանական նշանները (Legend) — ԷԼ ԱՎԵԼԻ ՄԵԾ
+            if (categories.length > 0) {
+                var legendPadding = 25;
+                var legendWidth = 360;      // Լայնացվել է (280-ից -> 360)
+                var itemHeight = 46;        // Յուրաքանչյուր տողի բարձրությունը մեծացվել է
+                var headerHeight = 55;      // Վերնագրի հատվածը մեծացվել է
+                var legendHeight = headerHeight + (categories.length * itemHeight) + (legendPadding * 2);
+                
+                var legendX = 35;
+                var legendY = canvas.height - legendHeight - 35;
+
+                // Լեգենդայի ֆոնը
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(legendX, legendY, legendWidth, legendHeight, 16);
+                ctx.fill();
+                ctx.stroke();
+
+                // Լեգենդայի վերնագիրը (տառաչափը՝ 24px)
+                ctx.font = 'bold 24px "Segoe UI", Arial, sans-serif';
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText('Պայմանական Նշաններ', legendX + legendPadding, legendY + legendPadding);
+
+                // Տողատակի գիծ
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(legendX + legendPadding, legendY + legendPadding + 38);
+                ctx.lineTo(legendX + legendWidth - legendPadding, legendY + legendPadding + 38);
+                ctx.stroke();
+
+                // Կատեգորիաների ցուցակը (տառաչափը՝ 20px)
+                var currentItemY = legendY + legendPadding + headerHeight;
+                ctx.font = '600 20px "Segoe UI", Arial, sans-serif';
+
+                categories.forEach(function(cat) {
+                    // Գույնի քառակուսին (չափսը՝ 32x32px)
+                    ctx.fillStyle = cat.color;
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(legendX + legendPadding, currentItemY, 32, 32, 8);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Անվանումը
+                    ctx.fillStyle = '#1e293b';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(cat.label, legendX + legendPadding + 46, currentItemY + 16);
+
+                    currentItemY += itemHeight;
+                });
+            }
+
+            // 3. Ներբեռնում ենք պատրաստի պատկերը
+            var link = document.createElement('a');
+            link.download = rawTitle.toLowerCase().replace(/\s+/g, '_') + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            // 4. Վերականգնում ենք սկզբնական canvas-ը
+            ctx.putImageData(tempImageData, 0, 0);
+        }
+    </script>
+</body>
+</html>
